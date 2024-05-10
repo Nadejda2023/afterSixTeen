@@ -47,12 +47,23 @@ import { UpdatePostLikeStatusUseCase } from './modules/posts/usecase/post_like_s
 import { CqrsModule } from '@nestjs/cqrs';
 import { UserSoftGuard } from './guards/user.middleware';
 import { BlogIdExistsValidator } from './customValidate/blog.id.custom.validator';
+import { TypeOrmModule } from '@nestjs/typeorm';
 
 //dotenv.config();
 
 @Module({
   imports: [
     CqrsModule,
+    TypeOrmModule.forRoot({
+      type: 'postgres',
+      host: 'localhost', // process.env.POSTGRES_H,
+      port: 5433, //Number(process.env.POSTGRES_PORT),
+      username: 'postgres', //process.env.POSTGRES_U,
+      password: '1234', //process.env.POSTGRES_PAS,
+      database: 'HomeWorks', // process.env.POSTGRES_DB,
+      entities: ['dist/**/*.entity{.ts,.js}'],
+      synchronize: true,
+    }),
     ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
     MongooseModule.forRoot(process.env.MONGO_URL || ''),
     MongooseModule.forFeature([

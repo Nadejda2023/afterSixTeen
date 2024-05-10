@@ -23,7 +23,7 @@ import { UsersInputDto } from '../../models/input/create-user.input-dto';
 import { getUsersPagination } from '../../hellpers/pagination';
 @SkipThrottle()
 @UseGuards(AuthorizationGuard)
-@Controller('users')
+@Controller('sa')
 export class UsersController {
   constructor(
     protected usersService: UserService,
@@ -31,7 +31,7 @@ export class UsersController {
     protected usersRepository: UserRepository,
   ) {}
   @UseGuards(AuthorizationGuard)
-  @Post()
+  @Post('users')
   @HttpCode(201)
   async createUser(@Body() inputModel: UsersInputDto, @Req() req, @Res() res) {
     //const { login, email, password } = inputModel;
@@ -44,7 +44,7 @@ export class UsersController {
     return res.status(HttpStatus.CREATED).json(newUser);
   }
 
-  @Get()
+  @Get('users')
   async getUsers(@Query() query, @Res() res): Promise<void> {
     const pagination = getUsersPagination(query);
     const foundAllUsers: PaginatedUser<UserViewModel> =
@@ -53,7 +53,7 @@ export class UsersController {
     res.status(HttpStatus.OK).json(foundAllUsers);
   }
   @UseGuards(AuthorizationGuard)
-  @Delete(':id')
+  @Delete('users/:id')
   @HttpCode(204)
   async deleteUser(@Param('id') id: string, @Res() res): Promise<void> {
     const isDeleted = await this.usersService.deleteUserById(id);
