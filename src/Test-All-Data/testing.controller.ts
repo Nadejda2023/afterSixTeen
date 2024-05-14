@@ -5,9 +5,9 @@ import { TestingService } from './testing.service';
 export class TestingController {
   constructor(private readonly testingService: TestingService) {}
 
-  @Delete('all-data')
+  @Delete('/all-data')
   @HttpCode(204)
-  wipeAllData() {
-    return this.testingService.wipeAllData();
+  async wipeAllData() {
+    return await this.testingService.wipeAllData();
   }
 }

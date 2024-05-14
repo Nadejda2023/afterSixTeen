@@ -19,6 +19,13 @@ export class AuthViewModelType {
     public userId: string,
   ) {}
 }
+export class AuthSql {
+  id: number;
+  email: string;
+  login: string;
+  userId: number; //FK id User
+}
+
 export type AuthDocument = HydratedDocument<Auth>;
 @Schema()
 export class Auth {

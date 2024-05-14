@@ -21,10 +21,12 @@ import {
 import { UsersQueryRepository } from '../users/users.queryRepository';
 import { UserRepository } from '../users/users.repository';
 import { refreshTokenSecret2, accessTokenSecret1 } from '../../setting';
+import { DataSource } from 'typeorm';
 
 @Injectable()
 export class AuthRepository {
   constructor(
+    dataSource: DataSource,
     @InjectModel('Auth') private readonly AuthModel: Model<AuthDocument>,
     @InjectModel('User') private readonly UserModel: Model<UsersModel>,
     protected emailService: EmailService,
@@ -155,12 +157,12 @@ export class AuthRepository {
   ): Promise<{ accessToken: string; newRefreshToken: string }> {
     try {
       const accessToken = jwt.sign({ userId }, accessTokenSecret1, {
-        expiresIn: '10s',
+        expiresIn: '10h',
       });
       const newRefreshToken = jwt.sign(
         { userId, deviceId }, // deviceId
         refreshTokenSecret2,
-        { expiresIn: '20s' },
+        { expiresIn: '20h' },
       );
       return { accessToken, newRefreshToken };
     } catch (error) {

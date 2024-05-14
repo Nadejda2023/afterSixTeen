@@ -21,6 +21,7 @@ import { PaginatedUser, UserViewModel } from '../../models/usersSchemas';
 import { AuthorizationGuard } from '../../guards/auth.basic.guard';
 import { UsersInputDto } from '../../models/input/create-user.input-dto';
 import { getUsersPagination } from '../../hellpers/pagination';
+import { UsersQueryRepositoryRawSql } from './users.queryRepositoryRawSql';
 @SkipThrottle()
 @UseGuards(AuthorizationGuard)
 @Controller('sa')
@@ -28,6 +29,7 @@ export class UsersController {
   constructor(
     protected usersService: UserService,
     protected usersQueryRepository: UsersQueryRepository,
+    protected usersQueryRepositoryRawSql: UsersQueryRepositoryRawSql,
     protected usersRepository: UserRepository,
   ) {}
   @UseGuards(AuthorizationGuard)
@@ -48,7 +50,7 @@ export class UsersController {
   async getUsers(@Query() query, @Res() res): Promise<void> {
     const pagination = getUsersPagination(query);
     const foundAllUsers: PaginatedUser<UserViewModel> =
-      await this.usersQueryRepository.findUsers(pagination);
+      await this.usersQueryRepositoryRawSql.findUsers(pagination);
 
     res.status(HttpStatus.OK).json(foundAllUsers);
   }

@@ -15,13 +15,21 @@ import { randomUUID } from 'crypto';
 import { addHours, addMinutes } from 'date-fns';
 import { EmailService } from '../../adapters/email-adapter';
 import { UsersInputDto } from '../../models/input/create-user.input-dto';
+import { UserRepositorySql } from './users.repository.raw.sgl';
+import { DataSource } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { UsersQueryRepositoryRawSql } from './users.queryRepositoryRawSql';
 
 @Injectable()
 export class UserService {
   constructor(
     @InjectModel(User.name) private usersModel: Model<UserDocument>,
+    @InjectDataSource() private readonly dataSource: DataSource,
     protected userRepository: UserRepository,
+
     protected usersQueryRepository: UsersQueryRepository,
+    protected userRepositorysql: UserRepositorySql,
+    protected usersQueryRepositorySql: UsersQueryRepositoryRawSql,
     protected emailService: EmailService,
   ) {}
 
@@ -47,7 +55,7 @@ export class UserService {
       },
     };
 
-    const result = await this.userRepository.createUser({ ...newUser });
+    const result = await this.userRepositorysql.createUser({ ...newUser });
     if (!result) throw new BadRequestException(); //
 
     try {

@@ -39,6 +39,24 @@ export class User {
 
 export const UserSchema = SchemaFactory.createForClass(User);
 
+export class UserSql {
+  id: number;
+  login: string;
+  email: string;
+  createdAt: string;
+  passwordSalt: string;
+  passwordHash: string;
+  recoveryCode?: string;
+  emailConfirmation: EmailConfirmationType;
+}
+export class EmailConfirmationSql {
+  id: string;
+  isConfirmed: boolean;
+  confirmationCode: string;
+  expirationDate: Date;
+  userId: number;
+}
+
 export type PaginatedUser<T> = {
   pagesCount: number;
   page: number;

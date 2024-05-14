@@ -48,6 +48,8 @@ import { CqrsModule } from '@nestjs/cqrs';
 import { UserSoftGuard } from './guards/user.middleware';
 import { BlogIdExistsValidator } from './customValidate/blog.id.custom.validator';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { UserRepositorySql } from './modules/users/users.repository.raw.sgl';
+import { UsersQueryRepositoryRawSql } from './modules/users/users.queryRepositoryRawSql';
 
 //dotenv.config();
 
@@ -62,7 +64,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
       password: '1234', //process.env.POSTGRES_PAS,
       database: 'HomeWorks', // process.env.POSTGRES_DB,
       entities: ['dist/**/*.entity{.ts,.js}'],
-      synchronize: true,
+      autoLoadEntities: false,
+      synchronize: false,
     }),
     ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
     MongooseModule.forRoot(process.env.MONGO_URL || ''),
@@ -108,8 +111,11 @@ import { TypeOrmModule } from '@nestjs/typeorm';
     CommentRepository,
     UserService,
     UserRepository,
+
     UsersQueryRepository,
+    UserRepositorySql,
     TestingRepository,
+    UsersQueryRepositoryRawSql,
     TestingService,
     AuthRepository,
     AuthService,

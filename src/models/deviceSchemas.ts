@@ -9,6 +9,14 @@ export type DeviceDbModel = {
   deviceId: string;
   userId: string;
 };
+
+export class DeviceSql {
+  id: number;
+  title: string;
+  lastActiveDate: string;
+  deviceId: number; // FK id Device
+  userId: number; // FK id user
+}
 export class DeviceModel {
   ///тот самый тип который был с длинным названием
 
@@ -31,6 +39,7 @@ export class DeviceModel {
     };
   }
 }
+
 export type DeviceViewModel = {
   ip: string;
   title: string;

@@ -3,12 +3,11 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { UsersModel } from '../../models/usersSchemas';
 import { DataSource } from 'typeorm';
-import { InjectDataSource } from '@nestjs/typeorm';
 
 @Injectable()
-export class UserRepository {
+export class UserRepositorySql {
   constructor(
-    @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly dataSource: DataSource,
     @InjectModel('User') private readonly userModel: Model<UsersModel>,
   ) {}
 
@@ -69,9 +68,25 @@ export class UserRepository {
     return user || null;
   }
   async createUser(userDTO: UsersModel) {
-    const smartUserModel = new this.userModel(userDTO);
-    await smartUserModel.save();
-    return smartUserModel;
+    try {
+      const smartUserModel = await this.dataSource.query(
+        `INSERT INTO public."Users"("login", "email", "createdAt", "passwordSalt", "passwordHash", "recoveryCode")
+        VALUES ($1, $2, NOW(), $3, $4, $5)
+        RETURNING "id", "login", "email", "createdAt";`,
+        [
+          userDTO.login,
+          userDTO.email,
+          userDTO.createdAt,
+          userDTO.passwordSalt,
+          userDTO.passwordHash,
+          userDTO.recoveryCode,
+        ],
+      );
+      return smartUserModel;
+    } catch (error) {
+      console.error('Error creating user:', error);
+      throw error;
+    }
   }
   async updateConfirmation(userId: string) {
     return this.userModel.updateOne(
