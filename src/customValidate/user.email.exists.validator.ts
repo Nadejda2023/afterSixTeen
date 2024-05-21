@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 
 import {
   //ValidationArguments,
@@ -6,21 +6,20 @@ import {
   ValidatorConstraintInterface,
 } from 'class-validator';
 import { UsersQueryRepository } from '../modules/users/users.queryRepository';
+import { UsersQueryRepositoryRawSql } from '../modules/users/users.queryRepositoryRawSql';
 
 @ValidatorConstraint({ name: 'UserEmailExists', async: true })
 @Injectable()
 export class UserEmailExistsValidator implements ValidatorConstraintInterface {
-  constructor(private readonly userQueryRepository: UsersQueryRepository) {}
+  constructor(
+    private readonly userQueryRepository: UsersQueryRepository,
+    protected userQueryRepositoryRawSql: UsersQueryRepositoryRawSql,
+  ) {}
   async validate(email: string) {
     try {
-      const user = await this.userQueryRepository.findUserByEmail(email);
+      const user = await this.userQueryRepositoryRawSql.findUserByEmail(email);
       if (user) {
-        throw new BadRequestException([
-          {
-            message: 'this email found in base',
-            field: 'email',
-          },
-        ]);
+        return false;
       } else {
         return true;
       } // Вернуть true, если пользователь не найден

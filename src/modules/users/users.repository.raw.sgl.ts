@@ -5,7 +5,7 @@ import { UsersModel } from '../../models/usersSchemas';
 import { DataSource } from 'typeorm';
 
 @Injectable()
-export class UserRepositorySql {
+export class UserRepositoryRawSql {
   constructor(
     private readonly dataSource: DataSource,
     @InjectModel('User') private readonly userModel: Model<UsersModel>,
@@ -16,15 +16,74 @@ export class UserRepositorySql {
     return result.acknowledged === true;
   }
 
-  async deleteUsers(id: string): Promise<boolean> {
-    const result = await this.userModel.deleteOne({ id: id });
-    return result.deletedCount === 1;
+  async deleteUsers(id: string) {
+    console.log('id', id);
+    await this.dataSource.query(
+      `DELETE FROM public."EmailConfirmation" WHERE "userId" = $1;`,
+      [id],
+    );
+
+    const result = await this.dataSource.query(
+      `DELETE FROM public."Users" WHERE id = $1 RETURNING *;`,
+      [id],
+    );
+
+    return result.rowCount === 1;
   }
 
   async findUserByEmail(email: string) {
-    const user = await this.userModel.findOne({ email });
-    return user;
+    const user = await this.dataSource.query(
+      `SELECT *
+        FROM public."Users"
+        WHERE "email" = $1;`,
+      [email],
+    );
+    console.log('user', user);
+    if (user.length > 0) {
+      return user;
+    } else {
+      console.log('0');
+      return null;
+    }
   }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async findEmailConfirmationByEmail(email: string) {
+    ///перенести в простой репозиторий и обратиться к нему через сервис
+    const user = await this.dataSource.query(
+      `SELECT *
+      FROM public."Users" u
+      LEFT JOIN "EmailConfirmation" e ON e."userId" = u."id" 
+      WHERE u."email"=$1
+     ;
+`,
+      [email],
+    );
+    if (user && user.length > 0) {
+      return user[0];
+    } else {
+      return null;
+    }
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async findEmailConfirmationByCode(code: string) {
+    const user = await this.dataSource.query(
+      `SELECT *
+      FROM public."Users" u
+      LEFT JOIN "EmailConfirmation" e ON e."userId" = u."id" 
+      WHERE e."confirmationCode"=$1
+      ;
+    `,
+      [code],
+    );
+    console.log('user from 1', user);
+    if (user && user.length > 0) {
+      return user[0];
+    } else {
+      return null;
+    }
+  }
+
   async updateRecoveryPasswordInfo(userId: string, recoveryCode: string) {
     return this.userModel.updateOne(
       { userId },
@@ -45,19 +104,30 @@ export class UserRepositorySql {
   }
 
   async findUserById(id: string): Promise<UsersModel | null> {
-    const result = await this.userModel.findOne({ id: id });
-    return result || null;
+    const user = await this.dataSource.query(
+      `SELECT * FROM public."Users" WHERE "id" = $1;`,
+      [id],
+    );
+    if (user && user.length > 0) {
+      return user[0];
+    } else {
+      return null;
+    }
   }
 
   async findUserByConfirmationCode(code: string) {
-    try {
-      const user = await this.userModel.findOne({
-        'emailConfirmation.confirmationCode': code,
-      });
-      return user || null;
-    } catch (error) {
-      console.error('Error finding user by confirmation code:', error);
-      throw error;
+    const user = await this.dataSource.query(
+      `SELECT *
+        FROM public."Users" u
+        LEFT JOIN "EmailConfirmation" e ON e."userId" = u."id"
+        WHERE e."confirmationCode" = $1;`,
+      [code],
+    );
+    if (user.length > 0) {
+      return user;
+    } else {
+      console.log('0');
+      return null;
     }
   }
 
@@ -69,10 +139,11 @@ export class UserRepositorySql {
   }
   async createUser(userDTO: UsersModel) {
     try {
-      const smartUserModel = await this.dataSource.query(
-        `INSERT INTO public."Users"("login", "email", "createdAt", "passwordSalt", "passwordHash", "recoveryCode")
-        VALUES ($1, $2, NOW(), $3, $4, $5)
-        RETURNING "id", "login", "email", "createdAt";`,
+      const userInsertResult = await this.dataSource.query(
+        `INSERT INTO public."Users"(
+          "login", "email", "createdAt", "passwordSalt", "passwordHash", "recoveryCode", "id")
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING *;`,
         [
           userDTO.login,
           userDTO.email,
@@ -80,32 +151,59 @@ export class UserRepositorySql {
           userDTO.passwordSalt,
           userDTO.passwordHash,
           userDTO.recoveryCode,
+          userDTO.id,
         ],
       );
-      return smartUserModel;
+
+      await this.dataSource.query(
+        `INSERT INTO public."EmailConfirmation"(
+          "isConfirmed", "confirmationCode", "userId", "expirationDate")
+        VALUES ($1, $2, $3, $4)
+        RETURNING *;`,
+        [
+          userDTO.emailConfirmation.isConfirmed,
+          userDTO.emailConfirmation.confirmationCode,
+          userDTO.id,
+          userDTO.emailConfirmation.expirationDate,
+        ],
+      );
+
+      return userInsertResult;
     } catch (error) {
       console.error('Error creating user:', error);
       throw error;
     }
   }
   async updateConfirmation(userId: string) {
-    return this.userModel.updateOne(
-      { id: userId },
-      { $set: { 'emailConfirmation.isConfirmed': true } },
+    try {
+      console.log('id:', userId);
+      const result = await this.dataSource.query(
+        `UPDATE "EmailConfirmation" ec
+          SET "isConfirmed" = true
+          WHERE ec."userId" = $1;`,
+        [userId],
+      );
+      console.log('Update result:', result);
+      return result;
+    } catch (error) {
+      console.error('Error updating confirmation:', error);
+      throw new Error('Failed to update confirmation');
+    }
+  }
+  async updateCodeAndExpirationDate(
+    id: string,
+    code: string,
+    expirationDate: Date,
+  ) {
+    return await this.dataSource.query(
+      `UPDATE "EmailConfirmation" ec 
+      SET "confirmationCode" = $1, "expirationDate" = $2
+      WHERE ec."userId" = $3
+      ;`,
+      [code, expirationDate, id],
     );
   }
 
-  async updateCode(id: string, code: string, expirationDate: Date) {
-    return this.userModel.updateOne(
-      { id: id },
-      {
-        $set: {
-          'emailConfirmation.confirmationCode': code,
-          'emailConfirmation.expirationDate': expirationDate,
-        },
-      },
-    );
-  }
   async deleteAll(): Promise<boolean> {
     try {
       const result = await this.userModel.deleteMany({});

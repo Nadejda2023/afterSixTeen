@@ -5,15 +5,19 @@ import {
   ValidatorConstraintInterface,
 } from 'class-validator';
 import { UsersQueryRepository } from '../modules/users/users.queryRepository';
+import { UsersQueryRepositoryRawSql } from '../modules/users/users.queryRepositoryRawSql';
 
 @ValidatorConstraint({ name: 'UserLoginExists', async: true })
 @Injectable()
 export class UserLoginExistsValidator implements ValidatorConstraintInterface {
-  constructor(private readonly userQueryRepository: UsersQueryRepository) {}
-  debugger;
+  constructor(
+    private readonly userQueryRepository: UsersQueryRepository,
+    protected userQueryRepositoryRawSql: UsersQueryRepositoryRawSql,
+  ) {}
+
   async validate(login: string) {
     try {
-      const user = await this.userQueryRepository.findByLogin(login);
+      const user = await this.userQueryRepositoryRawSql.findByLogin(login);
       if (user) {
         return false;
       } else {

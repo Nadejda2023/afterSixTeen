@@ -40,7 +40,7 @@ export class User {
 export const UserSchema = SchemaFactory.createForClass(User);
 
 export class UserSql {
-  id: number;
+  id: string;
   login: string;
   email: string;
   createdAt: string;

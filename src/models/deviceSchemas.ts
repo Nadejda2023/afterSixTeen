@@ -12,9 +12,10 @@ export type DeviceDbModel = {
 
 export class DeviceSql {
   id: number;
+  ip: string;
   title: string;
   lastActiveDate: string;
-  deviceId: number; // FK id Device
+  deviceId: number;
   userId: number; // FK id user
 }
 export class DeviceModel {

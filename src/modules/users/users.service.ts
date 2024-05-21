@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { UserRepository } from './users.repository';
 import {
   CreateUserModel,
@@ -15,10 +19,10 @@ import { randomUUID } from 'crypto';
 import { addHours, addMinutes } from 'date-fns';
 import { EmailService } from '../../adapters/email-adapter';
 import { UsersInputDto } from '../../models/input/create-user.input-dto';
-import { UserRepositorySql } from './users.repository.raw.sgl';
 import { DataSource } from 'typeorm';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { UsersQueryRepositoryRawSql } from './users.queryRepositoryRawSql';
+import { UserRepositoryRawSql } from './users.repository.raw.sgl';
 
 @Injectable()
 export class UserService {
@@ -28,8 +32,8 @@ export class UserService {
     protected userRepository: UserRepository,
 
     protected usersQueryRepository: UsersQueryRepository,
-    protected userRepositorysql: UserRepositorySql,
-    protected usersQueryRepositorySql: UsersQueryRepositoryRawSql,
+    protected userRepositoryRawSql: UserRepositoryRawSql,
+    protected usersQueryRepositoryRawSql: UsersQueryRepositoryRawSql,
     protected emailService: EmailService,
   ) {}
 
@@ -55,7 +59,7 @@ export class UserService {
       },
     };
 
-    const result = await this.userRepositorysql.createUser({ ...newUser });
+    const result = await this.userRepositoryRawSql.createUser({ ...newUser });
     if (!result) throw new BadRequestException(); //
 
     try {
@@ -107,8 +111,15 @@ export class UserService {
     return hash;
   }
 
-  async deleteUserById(id: string): Promise<boolean> {
-    return await this.userRepository.deleteUsers(id);
+  async deleteUserById(id: string) {
+    const user = await this.userRepositoryRawSql.findUserById(id);
+    console.log('User', user);
+    if (user) {
+      const result = await this.userRepositoryRawSql.deleteUsers(id);
+      console.log('result', result);
+    } else {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
   }
 
   async deleteAll(): Promise<boolean> {

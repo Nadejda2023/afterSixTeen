@@ -7,7 +7,6 @@ import { Auth, AuthDocument } from '../models/authSchemas';
 import { CommentDocument } from '../models/commentSchemas';
 import { Posts, PostDocument } from '../models/postSchema';
 import { DataSource } from 'typeorm';
-import { error } from 'console';
 
 @Injectable()
 export class TestingRepository {
@@ -25,16 +24,17 @@ export class TestingRepository {
 
   async wipeAllData(): Promise<boolean> {
     try {
-      await this.dataSource.query('DELETE FROM public."Users"');
+      await this.dataSource.query('DELETE FROM public."Auth"');
       await this.dataSource.query('DELETE FROM public."EmailConfirmation"');
+      await this.dataSource.query('DELETE FROM public."Users"');
+
       await this.dataSource.query('DELETE FROM public."Device"');
       // await this.blogModel.deleteMany({});
       // await this.postModel.deleteMany({});
       // await this.commentModel.deleteMany({});
-      await this.dataSource.query('DELETE FROM public."Auth"');
+
       return true;
     } catch (e) {
-      console.log(error);
       return false;
     }
   }

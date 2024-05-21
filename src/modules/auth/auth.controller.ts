@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import {
-  BadRequestException,
   Body,
   Controller,
   Get,
@@ -166,18 +165,22 @@ export class AuthController {
   async createRegistrationConfirmation(
     @Body() registrationConfirmationDto: RegistrationConfirmationDto,
   ) {
-    const result = await this.authRepository.confirmUserEmail(
+    console.log(
+      'registrationConfirmationDto.code',
+      registrationConfirmationDto.code,
+    );
+    return await this.authRepository.confirmUserEmail(
       registrationConfirmationDto.code,
     );
 
-    if (!result) {
-      throw new BadRequestException([
-        {
-          message: 'some error occured',
-          field: 'code',
-        },
-      ]);
-    }
+    // if (!result) {
+    //   throw new BadRequestException([
+    //     {
+    //       message: 'some error occured',
+    //       field: 'code',
+    //     },
+    //   ]);
+    // }
   }
 
   @Throttle({ default: { limit: 5, ttl: 10000 } })
@@ -201,6 +204,7 @@ export class AuthController {
     @Body() registrationEmailResendingDto: RegistrationEmailResendingDto,
   ) {
     return this.authRepository.ressendingEmail(
+      //запросы к сервису, отрефактори
       registrationEmailResendingDto.email,
     );
   }

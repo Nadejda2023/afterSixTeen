@@ -48,8 +48,8 @@ import { CqrsModule } from '@nestjs/cqrs';
 import { UserSoftGuard } from './guards/user.middleware';
 import { BlogIdExistsValidator } from './customValidate/blog.id.custom.validator';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { UserRepositorySql } from './modules/users/users.repository.raw.sgl';
 import { UsersQueryRepositoryRawSql } from './modules/users/users.queryRepositoryRawSql';
+import { UserRepositoryRawSql } from './modules/users/users.repository.raw.sgl';
 
 //dotenv.config();
 
@@ -113,7 +113,7 @@ import { UsersQueryRepositoryRawSql } from './modules/users/users.queryRepositor
     UserRepository,
 
     UsersQueryRepository,
-    UserRepositorySql,
+    UserRepositoryRawSql,
     TestingRepository,
     UsersQueryRepositoryRawSql,
     TestingService,

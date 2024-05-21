@@ -1,7 +1,7 @@
 import { IsString, IsUUID } from 'class-validator';
 
 export class RegistrationConfirmationDto {
-  @IsString()
   @IsUUID()
+  @IsString({ message: 'Must be string' })
   code: string;
 }

@@ -4,8 +4,6 @@ import {
   INestApplication,
   ValidationPipe,
 } from '@nestjs/common';
-import { useContainer } from 'class-validator';
-import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './exception.filter';
 
 export const accessTokenSecret1 = process.env.ACCESS_TOKEN || '123';
@@ -19,8 +17,6 @@ export const settings = {
   JWT_SECRET: process.env.JWT_SECRET || '123',
 };
 export const appSettings = (app: INestApplication): void => {
-  app.use(cookieParser());
-  useContainer(app.select(AppModule), { fallbackOnErrors: true });
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -42,6 +38,8 @@ export const appSettings = (app: INestApplication): void => {
       },
     }),
   );
+
+  app.use(cookieParser());
   app.enableCors();
   app.useGlobalFilters(new HttpExceptionFilter());
 };

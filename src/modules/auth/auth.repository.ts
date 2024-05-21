@@ -1,4 +1,5 @@
 import {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   BadRequestException,
   Injectable,
   UnauthorizedException,
@@ -22,6 +23,8 @@ import { UsersQueryRepository } from '../users/users.queryRepository';
 import { UserRepository } from '../users/users.repository';
 import { refreshTokenSecret2, accessTokenSecret1 } from '../../setting';
 import { DataSource } from 'typeorm';
+import { UserRepositoryRawSql } from '../users/users.repository.raw.sgl';
+import { UsersQueryRepositoryRawSql } from '../users/users.queryRepositoryRawSql';
 
 @Injectable()
 export class AuthRepository {
@@ -31,7 +34,9 @@ export class AuthRepository {
     @InjectModel('User') private readonly UserModel: Model<UsersModel>,
     protected emailService: EmailService,
     protected userRepository: UserRepository,
+    protected userRepositoryRawSql: UserRepositoryRawSql,
     protected usersQueryRepository: UsersQueryRepository,
+    protected usersQueryRepositoryRawSql: UsersQueryRepositoryRawSql,
   ) {}
 
   async findMe(): Promise<WithId<AuthViewModel> | null> {
@@ -47,68 +52,55 @@ export class AuthRepository {
     return result.acknowledged === true;
   }
 
-  async confirmEmail(code: string) {
-    const user = await this.userRepository.findUserByConfirmationCode(code);
-    if (!user) throw new BadRequestException('userNotExist');
-
-    if (user.emailConfirmation.isConfirmed)
-      throw new BadRequestException('codeAlreadyConfirmed');
-    if (user.emailConfirmation.confirmationCode !== code)
-      throw new BadRequestException('3');
-    if (user.emailConfirmation.expirationDate < new Date())
-      throw new BadRequestException('4');
-
-    const result = await this.userRepository.updateConfirmation(user.id);
-
-    return result;
-  }
   async confirmUserEmail(code: string) {
-    try {
-      const user = await this.userRepository.findUserByConfirmationCode(code);
-      if (!user) throw new BadRequestException('3');
-      if (user.emailConfirmation.isConfirmed) {
-        throw new BadRequestException('4');
-      }
-      await this.userRepository.updateConfirmation(user.id);
-    } catch (error) {
-      return false;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const result =
+      await this.userRepositoryRawSql.findEmailConfirmationByCode(code);
+    if (!result || result.isConfirmed === true) {
+      throw new BadRequestException([
+        {
+          message: 'This code is confirmed, he can not confirmed twice',
+          field: 'code',
+        },
+      ]);
+    } else {
+      const update = await this.userRepositoryRawSql.updateConfirmation(
+        result.userId,
+      );
+      console.log('update', update);
+      return true;
     }
-    return true;
   }
 
-  async ressendingEmail(email: string): Promise<boolean | null> {
-    const user = await this.userRepository.findUserByEmail(email);
-    if (!user)
+  async ressendingEmail(email: string) {
+    const result =
+      await this.userRepositoryRawSql.findEmailConfirmationByEmail(email);
+    console.log('3', result);
+    if (!result || result.isConfirmed === true) {
       throw new BadRequestException([
         {
-          message: 'this email found in base',
+          message: 'This email is confirmed, he can not confirmed twice',
           field: 'email',
         },
-      ]); //
-    if (user.emailConfirmation.isConfirmed)
-      throw new BadRequestException([
-        {
-          message: 'email found in base and comfirm',
-          field: 'email',
-        },
-      ]); //
-
-    const confirmationCode = randomUUID();
-    const expiritionDate = add(new Date(), {
-      hours: 1,
-      minutes: 2,
-    });
-    await this.userRepository.updateCode(
-      user.id,
-      confirmationCode,
-      expiritionDate,
-    );
-
-    try {
-      await this.emailService.sendEmail(user.email, 'code', confirmationCode);
-    } catch (error) {}
-
-    return true;
+      ]);
+    } else {
+      const confirmationCode = randomUUID();
+      const expiritionDate = add(new Date(), {
+        hours: 1,
+        minutes: 2,
+      });
+      console.log('5');
+      const updateUser =
+        await this.userRepositoryRawSql.updateCodeAndExpirationDate(
+          result.userId,
+          confirmationCode,
+          expiritionDate,
+        );
+      console.log('updateUser', updateUser);
+      await this.emailService.sendEmail(result.email, 'code', confirmationCode);
+      console.log('7');
+      return true;
+    }
   }
 
   async findUserByID(userId: string): Promise<UsersModel | null> {
@@ -223,7 +215,7 @@ export class AuthRepository {
       },
     };
 
-    await this.userRepository.createUser({ ...newUser });
+    await this.userRepositoryRawSql.createUser({ ...newUser });
 
     try {
       this.emailService.sendEmail(
@@ -244,13 +236,23 @@ export class AuthRepository {
 
   async checkCredentials(loginOrEmail: string, password: string) {
     const user =
-      await this.usersQueryRepository.findByLoginOrEmail(loginOrEmail);
+      await this.usersQueryRepositoryRawSql.findByLoginOrEmail(loginOrEmail);
     if (!user) {
-      return false;
+      throw new UnauthorizedException([
+        {
+          message: '401',
+          field: 'not',
+        },
+      ]);
     }
     const passwordHash = await this._generateHash(password, user.passwordSalt);
     if (user.passwordHash !== passwordHash) {
-      return false;
+      throw new UnauthorizedException([
+        {
+          message: '401',
+          field: 'not',
+        },
+      ]);
     }
 
     return user;

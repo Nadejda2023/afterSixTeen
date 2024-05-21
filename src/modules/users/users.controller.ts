@@ -8,7 +8,6 @@ import {
   Req,
   Res,
   HttpStatus,
-  NotFoundException,
   Body,
   UseGuards,
   HttpCode,
@@ -57,13 +56,10 @@ export class UsersController {
   @UseGuards(AuthorizationGuard)
   @Delete('users/:id')
   @HttpCode(204)
-  async deleteUser(@Param('id') id: string, @Res() res): Promise<void> {
-    const isDeleted = await this.usersService.deleteUserById(id);
-
-    if (isDeleted) {
-      res.status(HttpStatus.NO_CONTENT).send();
-    } else {
-      throw new NotFoundException(`User with id ${id} not found`);
-    }
+  async deleteUser(@Param('id') id: string) {
+    return await this.usersService.deleteUserById(id);
+    // if (!foundAndDeleteUser) {
+    //   throw new NotFoundException(`Blog with ID ${id} not found`);
+    // }
   }
 }
