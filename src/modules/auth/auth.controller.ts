@@ -27,7 +27,6 @@ import { UsersValidateDto } from '../../models/input/user.customvalidate.dto';
 import { User } from '../../models/usersSchemas';
 import { UsersQueryRepository } from '../users/users.queryRepository';
 import { Device, DeviceDbModel } from '../../models/deviceSchemas';
-import { DeviceRepository } from '../device/device.repository';
 import { UserDecorator } from '../../infastructure/decorators/param/user.decorator';
 import { AuthService } from './auth.service';
 import { RefreshToken } from './decorators/refresh-token.decoratoes';
@@ -38,7 +37,6 @@ export class AuthController {
     private readonly jwtService: JwtService,
     private readonly authService: AuthService,
     private readonly authRepository: AuthRepository,
-    private readonly deviceRepository: DeviceRepository,
     private readonly usersQueryRepository: UsersQueryRepository,
     @InjectModel('Device') private readonly deviceModel: Model<Device>,
   ) {}
@@ -169,18 +167,9 @@ export class AuthController {
       'registrationConfirmationDto.code',
       registrationConfirmationDto.code,
     );
-    return await this.authRepository.confirmUserEmail(
+    return await this.authService.confirmUserEmail(
       registrationConfirmationDto.code,
     );
-
-    // if (!result) {
-    //   throw new BadRequestException([
-    //     {
-    //       message: 'some error occured',
-    //       field: 'code',
-    //     },
-    //   ]);
-    // }
   }
 
   @Throttle({ default: { limit: 5, ttl: 10000 } })
@@ -189,7 +178,7 @@ export class AuthController {
   @HttpCode(204)
   async createRegistration(@Body() createUserDto: UsersValidateDto) {
     // to do UserDto
-    return this.authRepository.createUser(
+    return this.authService.createUser(
       createUserDto.login,
       createUserDto.email,
       createUserDto.password,
@@ -203,8 +192,7 @@ export class AuthController {
   async createRegistrationEmailResending(
     @Body() registrationEmailResendingDto: RegistrationEmailResendingDto,
   ) {
-    return this.authRepository.ressendingEmail(
-      //запросы к сервису, отрефактори
+    return this.authService.ressendingEmail(
       registrationEmailResendingDto.email,
     );
   }
@@ -216,35 +204,8 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    try {
-      //const refreshToken = req.cookies.refreshToken;
-      if (!token) {
-        throw new UnauthorizedException();
-      }
-      const isValid = await this.authRepository.validateRefreshToken(token);
-
-      const user = await this.usersQueryRepository.findUserById(isValid.userId);
-      if (!user) throw new UnauthorizedException();
-
-      const device = await this.deviceModel.findOne({
-        deviceId: isValid.deviceId,
-      });
-      if (!device) {
-        throw new UnauthorizedException();
-      }
-
-      const lastActiveDate = await this.jwtService.getLastActiveDate(token);
-      if (lastActiveDate !== device.lastActiveDate) {
-        throw new UnauthorizedException();
-      }
-
-      await this.deviceRepository.deleteDeviceId(isValid.deviceId);
-
-      res.clearCookie('refreshToken', { httpOnly: true, secure: true });
-    } catch (error) {
-      console.error(error);
-      throw error;
-    }
+    await this.authService.logout(token);
+    return res.clearCookie('refreshToken', { httpOnly: true, secure: true });
   }
 
   @Get('me')

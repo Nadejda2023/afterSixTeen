@@ -1,12 +1,5 @@
-import {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  BadRequestException,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { randomUUID } from 'crypto';
-import { add } from 'date-fns';
 import { Model } from 'mongoose';
 import * as jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
@@ -14,11 +7,7 @@ import { AuthDocument, AuthViewModel } from '../../models/authSchemas';
 import { EmailService } from '../../adapters/email-adapter';
 
 import { WithId } from '../../models/postSchema';
-import {
-  UsersModel,
-  CreateUserModel,
-  UserType,
-} from '../../models/usersSchemas';
+import { UsersModel } from '../../models/usersSchemas';
 import { UsersQueryRepository } from '../users/users.queryRepository';
 import { UserRepository } from '../users/users.repository';
 import { refreshTokenSecret2, accessTokenSecret1 } from '../../setting';
@@ -51,58 +40,6 @@ export class AuthRepository {
     const result = await this.AuthModel.deleteMany({});
     return result.acknowledged === true;
   }
-
-  async confirmUserEmail(code: string) {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const result =
-      await this.userRepositoryRawSql.findEmailConfirmationByCode(code);
-    if (!result || result.isConfirmed === true) {
-      throw new BadRequestException([
-        {
-          message: 'This code is confirmed, he can not confirmed twice',
-          field: 'code',
-        },
-      ]);
-    } else {
-      const update = await this.userRepositoryRawSql.updateConfirmation(
-        result.userId,
-      );
-      console.log('update', update);
-      return true;
-    }
-  }
-
-  async ressendingEmail(email: string) {
-    const result =
-      await this.userRepositoryRawSql.findEmailConfirmationByEmail(email);
-    console.log('3', result);
-    if (!result || result.isConfirmed === true) {
-      throw new BadRequestException([
-        {
-          message: 'This email is confirmed, he can not confirmed twice',
-          field: 'email',
-        },
-      ]);
-    } else {
-      const confirmationCode = randomUUID();
-      const expiritionDate = add(new Date(), {
-        hours: 1,
-        minutes: 2,
-      });
-      console.log('5');
-      const updateUser =
-        await this.userRepositoryRawSql.updateCodeAndExpirationDate(
-          result.userId,
-          confirmationCode,
-          expiritionDate,
-        );
-      console.log('updateUser', updateUser);
-      await this.emailService.sendEmail(result.email, 'code', confirmationCode);
-      console.log('7');
-      return true;
-    }
-  }
-
   async findUserByID(userId: string): Promise<UsersModel | null> {
     try {
       const user = await this.UserModel.findOne({ id: userId });
@@ -187,51 +124,6 @@ export class AuthRepository {
       },
     );
     return { success: true };
-  }
-
-  async createUser(
-    login: string,
-    email: string,
-    password: string,
-  ): Promise<CreateUserModel> {
-    const passwordSalt = await bcrypt.genSalt(10);
-    const passwordHash = await this._generateHash(password, passwordSalt);
-
-    const newUser: UserType = {
-      id: randomUUID(),
-      login: login,
-      email,
-      passwordHash,
-      passwordSalt,
-      createdAt: new Date().toISOString(),
-      recoveryCode: randomUUID(),
-      emailConfirmation: {
-        confirmationCode: randomUUID(),
-        expirationDate: add(new Date(), {
-          hours: 1,
-          minutes: 2,
-        }),
-        isConfirmed: false,
-      },
-    };
-
-    await this.userRepositoryRawSql.createUser({ ...newUser });
-
-    try {
-      this.emailService.sendEmail(
-        newUser.email,
-        'code',
-        newUser.emailConfirmation.confirmationCode,
-      );
-    } catch (error) {
-      console.error('create email error:', error);
-    }
-    return {
-      id: newUser.id,
-      login,
-      createdAt: newUser.createdAt,
-      email: newUser.email,
-    };
   }
 
   async checkCredentials(loginOrEmail: string, password: string) {
