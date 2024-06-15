@@ -30,6 +30,7 @@ import { Device, DeviceDbModel } from '../../models/deviceSchemas';
 import { UserDecorator } from '../../infastructure/decorators/param/user.decorator';
 import { AuthService } from './auth.service';
 import { RefreshToken } from './decorators/refresh-token.decoratoes';
+import { DeviceService } from '../device/device.service';
 
 @Controller('auth')
 export class AuthController {
@@ -38,6 +39,7 @@ export class AuthController {
     private readonly authService: AuthService,
     private readonly authRepository: AuthRepository,
     private readonly usersQueryRepository: UsersQueryRepository,
+    private readonly deviceService: DeviceService,
     @InjectModel('Device') private readonly deviceModel: Model<Device>,
   ) {}
 
@@ -111,31 +113,16 @@ export class AuthController {
   ) {
     if (!token) throw new UnauthorizedException();
     try {
-      //const refreshToken = req.cookies.refreshToken;
-      console.log('refresh token from req:', token);
-      // if (!token) {
-      //   throw new UnauthorizedException();
-      // }
-
-      const isValid = await this.authRepository.validateRefreshToken(token);
-
+      const isValid = await this.authService.validateRefreshToken(token);
       const user = await this.usersQueryRepository.findUserById(isValid.userId);
       if (!user) {
         throw new UnauthorizedException();
       }
+      const device: DeviceDbModel =
+        await this.deviceService.findDevice(isValid);
+      await this.deviceService.findDeviceLastActiveDate(token, device);
 
-      const device = await this.deviceModel.findOne({
-        deviceId: isValid.deviceId,
-      });
-      if (!device) {
-        throw new UnauthorizedException();
-      }
-
-      const lastActiveDate = await this.jwtService.getLastActiveDate(token);
-      if (lastActiveDate !== device.lastActiveDate) {
-        throw new UnauthorizedException();
-      }
-
+      //TODO refactoring code and switch to rawSql
       const newTokens = await this.authRepository.refreshTokens(
         user.id,
         device.deviceId,
@@ -156,6 +143,7 @@ export class AuthController {
       throw new UnauthorizedException();
     }
   }
+
   @Throttle({ default: { limit: 5, ttl: 10000 } })
   @UseGuards(ThrottlerGuard)
   @Post('registration-confirmation')

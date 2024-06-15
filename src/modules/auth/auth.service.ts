@@ -150,6 +150,12 @@ export class AuthService {
       email: newUser.email,
     };
   }
+
+  async validateRefreshToken(token: string) {
+    const isValid = await this.authRepository.validateRefreshToken(token);
+    return isValid;
+  }
+
   async _generateHash(password: string, salt: string) {
     const hash = await bcrypt.hash(password, salt);
     return hash;
@@ -180,6 +186,54 @@ export class AuthService {
     } catch (error) {
       console.error(error);
       throw error;
+    }
+  }
+  async refreshToken(token: string) {
+    if (!token) throw new UnauthorizedException();
+    try {
+      //const refreshToken = req.cookies.refreshToken;
+      console.log('refresh token from req:', token);
+      // if (!token) {
+      //   throw new UnauthorizedException();
+      // }
+
+      const isValid = await this.authRepository.validateRefreshToken(token);
+
+      const user = await this.usersQueryRepository.findUserById(isValid.userId);
+      if (!user) {
+        throw new UnauthorizedException();
+      }
+
+      const device = await this.deviceModel.findOne({
+        deviceId: isValid.deviceId,
+      });
+      if (!device) {
+        throw new UnauthorizedException();
+      }
+
+      const lastActiveDate = await this.jwtService.getLastActiveDate(token);
+      if (lastActiveDate !== device.lastActiveDate) {
+        throw new UnauthorizedException();
+      }
+
+      const newTokens = await this.authRepository.refreshTokens(
+        user.id,
+        device.deviceId,
+      );
+      const newLastActiveDate = await this.jwtService.getLastActiveDate(
+        newTokens.newRefreshToken,
+      );
+      await this.deviceModel.updateOne(
+        { deviceId: device.deviceId },
+        { $set: { lastActiveDate: newLastActiveDate } },
+      ),
+        res.cookie('refreshToken', newTokens.newRefreshToken, {
+          httpOnly: true,
+          secure: true,
+        });
+      return { accessToken: newTokens.accessToken };
+    } catch (e) {
+      throw new UnauthorizedException();
     }
   }
 }
