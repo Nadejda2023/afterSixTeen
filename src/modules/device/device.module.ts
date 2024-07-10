@@ -12,6 +12,8 @@ import { UsersQueryRepository } from '../users/users.queryRepository';
 import { UserRepository } from '../users/users.repository';
 import { UserRepositoryRawSql } from '../users/users.repository.raw.sgl';
 import { UsersQueryRepositoryRawSql } from '../users/users.queryRepositoryRawSql';
+import { JwtService } from '@nestjs/jwt';
+import { AuthModule } from '../auth/auth.module';
 
 const schemas = [
   { name: Device.name, schema: DeviceSchema },
@@ -30,6 +32,8 @@ const schemas = [
     UsersQueryRepository,
     UsersQueryRepositoryRawSql,
     UserRepositoryRawSql,
+    JwtService,
+    AuthModule,
   ],
   exports: [DeviceService, AuthRepository, DeviceRepository],
 })

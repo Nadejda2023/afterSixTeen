@@ -29,6 +29,18 @@ export class DeviceRepository {
       throw new Error('Failed to refresh tokens');
     }
   }
+
+  async findDeviceByValidToken(isValid: any): Promise<DeviceDbModel | null> {
+    const device = await this.deviceModel.findOne({
+      deviceId: isValid.deviceId,
+    });
+    if (!device) {
+      return null;
+    }
+
+    return device;
+  }
+
   async getDeviceByUserId(
     userId: string,
     deviceId: string,
@@ -44,6 +56,7 @@ export class DeviceRepository {
       return null;
     }
   }
+
   async getAllDeviceByUserId(userId: string): Promise<DeviceDbModel[]> {
     const device: DeviceDbModel[] = await this.deviceModel
       .find({ userId }, { projection: { _id: 0, userId: 0 } })
@@ -60,5 +73,11 @@ export class DeviceRepository {
       throw new NotFoundException(`with ID ${deviceId} not found`);
     }
     return result.deletedCount === 1;
+  }
+  async updateLastDevice(deviceId: string, newLastActiveDate: string) {
+    await this.deviceModel.updateOne(
+      { deviceId: deviceId },
+      { $set: { lastActiveDate: newLastActiveDate } },
+    );
   }
 }

@@ -8,7 +8,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { AuthRepository } from './auth.repository';
 import bcrypt from 'bcrypt';
 import { NewPasswordDto } from './dto/new-password.dto';
-import { Auth, AuthDocument } from '../../models/authSchemas';
+import { Auth, AuthDocument, payloadA } from '../../models/authSchemas';
 import { UsersQueryRepository } from '../users/users.queryRepository';
 import { UserRepository } from '../users/users.repository';
 import { UserService } from '../users/users.service';
@@ -20,11 +20,15 @@ import { CreateUserModel, UserType } from '../../models/usersSchemas';
 import { DeviceRepository } from '../device/device.repository';
 import { Device } from '../../models/deviceSchemas';
 import { JwtService } from './application/jwt.service';
+import { DeviceRepositoryRawSQL } from '../device/device.repository.rawSql';
+import { AuthRepositoryRawSql } from './auth.repository.rawsql';
+import { UsersQueryRepositoryRawSql } from '../users/users.queryRepositoryRawSql';
 
 @Injectable()
 export class AuthService {
   constructor(
     @InjectModel(Auth.name) private authModel: Model<AuthDocument>,
+    @InjectModel('Device') private readonly deviceModel: Model<Device>,
     protected usersQueryRepository: UsersQueryRepository,
     protected userRepository: UserRepository,
     protected authRepository: AuthRepository,
@@ -33,7 +37,9 @@ export class AuthService {
     protected usersService: UserService,
     protected userRepositoryRawSql: UserRepositoryRawSql,
     private readonly deviceRepository: DeviceRepository,
-    @InjectModel('Device') private readonly deviceModel: Model<Device>,
+    private readonly deviceRepositoryRawSql: DeviceRepositoryRawSQL,
+    private readonly authRepositoryRawSql: AuthRepositoryRawSql,
+    private readonly usersQueryRepositoryRawSql: UsersQueryRepositoryRawSql,
   ) {}
   async passwordRecovery(email: string) {
     const user = await this.usersQueryRepository.findByLoginOrEmail(email);
@@ -43,6 +49,10 @@ export class AuthService {
       user.email,
       recoveryCode,
     );
+  }
+  async refreshTokens(userId: string, deviceId: string) {
+    const newTokens = await this.authRepository.refreshTokens(userId, deviceId);
+    return newTokens;
   }
 
   async newPassword(newPasswordDto: NewPasswordDto) {
@@ -58,7 +68,6 @@ export class AuthService {
   async ressendingEmail(email: string) {
     const result =
       await this.userRepositoryRawSql.findEmailConfirmationByEmail(email);
-    console.log('3', result);
     if (!result || result.isConfirmed === true) {
       throw new BadRequestException([
         {
@@ -72,7 +81,6 @@ export class AuthService {
         hours: 1,
         minutes: 2,
       });
-      console.log('5');
       const updateUser =
         await this.userRepositoryRawSql.updateCodeAndExpirationDate(
           result.userId,
@@ -151,7 +159,7 @@ export class AuthService {
     };
   }
 
-  async validateRefreshToken(token: string) {
+  async validateRefreshToken(token: string): Promise<payloadA | null> {
     const isValid = await this.authRepository.validateRefreshToken(token);
     return isValid;
   }
@@ -160,19 +168,25 @@ export class AuthService {
     const hash = await bcrypt.hash(password, salt);
     return hash;
   }
+
   async logout(token: string) {
     try {
       if (!token) {
         throw new UnauthorizedException();
       }
       const isValid = await this.authRepository.validateRefreshToken(token);
+      if (!isValid) {
+        throw new UnauthorizedException();
+      }
 
-      const user = await this.usersQueryRepository.findUserById(isValid.userId);
+      const user = await this.usersQueryRepositoryRawSql.findUserById(
+        isValid.userId,
+      );
       if (!user) throw new UnauthorizedException();
 
-      const device = await this.deviceModel.findOne({
-        deviceId: isValid.deviceId,
-      });
+      const device = await this.deviceRepositoryRawSql.findDeviceById(
+        isValid.deviceId,
+      );
       if (!device) {
         throw new UnauthorizedException();
       }
@@ -182,58 +196,10 @@ export class AuthService {
         throw new UnauthorizedException();
       }
 
-      await this.deviceRepository.deleteDeviceId(isValid.deviceId);
+      await this.deviceRepositoryRawSql.deleteDeviceId(isValid.deviceId);
     } catch (error) {
       console.error(error);
       throw error;
-    }
-  }
-  async refreshToken(token: string) {
-    if (!token) throw new UnauthorizedException();
-    try {
-      //const refreshToken = req.cookies.refreshToken;
-      console.log('refresh token from req:', token);
-      // if (!token) {
-      //   throw new UnauthorizedException();
-      // }
-
-      const isValid = await this.authRepository.validateRefreshToken(token);
-
-      const user = await this.usersQueryRepository.findUserById(isValid.userId);
-      if (!user) {
-        throw new UnauthorizedException();
-      }
-
-      const device = await this.deviceModel.findOne({
-        deviceId: isValid.deviceId,
-      });
-      if (!device) {
-        throw new UnauthorizedException();
-      }
-
-      const lastActiveDate = await this.jwtService.getLastActiveDate(token);
-      if (lastActiveDate !== device.lastActiveDate) {
-        throw new UnauthorizedException();
-      }
-
-      const newTokens = await this.authRepository.refreshTokens(
-        user.id,
-        device.deviceId,
-      );
-      const newLastActiveDate = await this.jwtService.getLastActiveDate(
-        newTokens.newRefreshToken,
-      );
-      await this.deviceModel.updateOne(
-        { deviceId: device.deviceId },
-        { $set: { lastActiveDate: newLastActiveDate } },
-      ),
-        res.cookie('refreshToken', newTokens.newRefreshToken, {
-          httpOnly: true,
-          secure: true,
-        });
-      return { accessToken: newTokens.accessToken };
-    } catch (e) {
-      throw new UnauthorizedException();
     }
   }
 }

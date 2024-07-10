@@ -18,14 +18,14 @@ export class JwtService {
 
   async createJWT(user: UsersModel): Promise<string> {
     const token = jwt.sign({ userId: user.id }, accessTokenSecret1, {
-      expiresIn: '10h',
+      expiresIn: '10s',
     });
     return token;
   }
 
   async createJWTRT(userId: string, deviceId: string): Promise<string> {
     const rtoken = jwt.sign({ userId, deviceId }, refreshTokenSecret2, {
-      expiresIn: '20h',
+      expiresIn: '20s',
     });
     return rtoken;
   }
@@ -39,7 +39,7 @@ export class JwtService {
     }
   }
 
-  async getLastActiveDate(token: string): Promise<string> {
+  async getLastActiveDate(token: string) {
     const result: any = jwt.decode(token);
     return new Date(result.iat * 1000).toISOString();
   }

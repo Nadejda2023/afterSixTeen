@@ -36,7 +36,6 @@ import { AuthorizationGuard } from './guards/auth.basic.guard';
 import { UserEmailExistsValidator } from './customValidate/user.email.exists.validator';
 import { UserLoginExistsValidator } from './customValidate/user.login.exist.valdator';
 import { ThrottlerModule } from '@nestjs/throttler';
-import { DeviceModule } from './modules/device/device.module';
 import { Device, DeviceSchema } from './models/deviceSchemas';
 import { DeviceService } from './modules/device/device.service';
 import { DeviceController } from './modules/device/device.controller';
@@ -50,6 +49,8 @@ import { BlogIdExistsValidator } from './customValidate/blog.id.custom.validator
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersQueryRepositoryRawSql } from './modules/users/users.queryRepositoryRawSql';
 import { UserRepositoryRawSql } from './modules/users/users.repository.raw.sgl';
+import { AuthRepositoryRawSql } from './modules/auth/auth.repository.rawsql';
+import { DeviceRepositoryRawSQL } from './modules/device/device.repository.rawSql';
 
 //dotenv.config();
 
@@ -86,7 +87,6 @@ import { UserRepositoryRawSql } from './modules/users/users.repository.raw.sgl';
         limit: 5,
       },
     ]),
-    DeviceModule,
   ],
   controllers: [
     AppController,
@@ -111,7 +111,6 @@ import { UserRepositoryRawSql } from './modules/users/users.repository.raw.sgl';
     CommentRepository,
     UserService,
     UserRepository,
-
     UsersQueryRepository,
     UserRepositoryRawSql,
     TestingRepository,
@@ -130,6 +129,8 @@ import { UserRepositoryRawSql } from './modules/users/users.repository.raw.sgl';
     DeviceService,
     DeviceRepository,
     UpdatePostLikeStatusUseCase,
+    DeviceRepositoryRawSQL,
+    AuthRepositoryRawSql,
   ],
   exports: [EmailService, CommentRepository],
 })

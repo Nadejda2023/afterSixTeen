@@ -3,11 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import * as jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
-import {
-  AuthDocument,
-  AuthViewModel,
-  payloadA,
-} from '../../models/authSchemas';
+import { AuthDocument, AuthViewModel } from '../../models/authSchemas';
 import { EmailService } from '../../adapters/email-adapter';
 
 import { WithId } from '../../models/postSchema';
@@ -19,11 +15,11 @@ import { DataSource } from 'typeorm';
 import { UserRepositoryRawSql } from '../users/users.repository.raw.sgl';
 import { UsersQueryRepositoryRawSql } from '../users/users.queryRepositoryRawSql';
 import { Device } from '../../models/deviceSchemas';
+import { InjectDataSource } from '@nestjs/typeorm';
 
 @Injectable()
-export class AuthRepository {
+export class AuthRepositoryRawSql {
   constructor(
-    dataSource: DataSource,
     @InjectModel('Auth') private readonly AuthModel: Model<AuthDocument>,
     @InjectModel('User') private readonly UserModel: Model<UsersModel>,
     @InjectModel('Device') private readonly deviceModel: Model<Device>,
@@ -32,6 +28,7 @@ export class AuthRepository {
     protected userRepositoryRawSql: UserRepositoryRawSql,
     protected usersQueryRepository: UsersQueryRepository,
     protected usersQueryRepositoryRawSql: UsersQueryRepositoryRawSql,
+    @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 
   async findMe(): Promise<WithId<AuthViewModel> | null> {
@@ -61,22 +58,25 @@ export class AuthRepository {
     return hash;
   }
 
-  async validateRefreshToken(refreshToken: string): Promise<payloadA | null> {
+  async validateRefreshToken(refreshToken: string): Promise<any> {
     try {
       const payload = jwt.verify(refreshToken, refreshTokenSecret2);
-      return payload as payloadA;
+      console.log('refresh token secret:', refreshTokenSecret2);
+      console.log('payload:', payload);
+      return payload;
     } catch (error) {
-      return null;
+      console.log('error:', error);
+      throw new UnauthorizedException('Invalid or expired refresh token');
     }
   }
 
-  async validateAccessToken(accessToken: string): Promise<payloadA | null> {
+  async validateAccessToken(accessToken: string | undefined): Promise<any> {
     if (!accessToken) {
       return null;
     }
     try {
       const payload = jwt.verify(accessToken, accessTokenSecret1);
-      return payload as payloadA;
+      return payload;
     } catch (error) {
       console.error('Token validation error:', error);
       return null;
@@ -89,12 +89,12 @@ export class AuthRepository {
   ): Promise<{ accessToken: string; newRefreshToken: string }> {
     try {
       const accessToken = jwt.sign({ userId }, accessTokenSecret1, {
-        expiresIn: '10s',
+        expiresIn: '10h',
       });
       const newRefreshToken = jwt.sign(
-        { userId, deviceId },
+        { userId, deviceId }, // deviceId
         refreshTokenSecret2,
-        { expiresIn: '20s' },
+        { expiresIn: '20h' },
       );
       return { accessToken, newRefreshToken };
     } catch (error) {

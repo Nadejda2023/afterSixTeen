@@ -38,11 +38,10 @@ export class UserRepositoryRawSql {
         WHERE "email" = $1;`,
       [email],
     );
-    console.log('user', user);
+
     if (user.length > 0) {
       return user;
     } else {
-      console.log('0');
       return null;
     }
   }

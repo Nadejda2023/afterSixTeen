@@ -12,6 +12,20 @@ export type AuthViewModel = {
   userId: string;
 };
 
+export type payloadA = {
+  userId: string;
+  deviceId: string;
+  iat: number;
+  exp: number;
+};
+
+// export type payloadR = {
+//   refreshToken: string;
+//   deviceId: string;
+//   userId: string;
+//   expiresIn: string;
+//   refreshTokenSecret2: string;
+// };
 export class AuthViewModelType {
   constructor(
     public email: string,

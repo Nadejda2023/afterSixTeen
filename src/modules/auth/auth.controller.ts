@@ -22,28 +22,30 @@ import { RecoveryPasswordDto } from './dto/recovery-password.dto';
 import { NewPasswordDto } from './dto/new-password.dto';
 import { RegistrationConfirmationDto } from './dto/registration-confirmation.dto';
 import { JwtService } from './application/jwt.service';
-import { AuthGuard } from '../../guards/auth.middleware';
 import { UsersValidateDto } from '../../models/input/user.customvalidate.dto';
 import { User } from '../../models/usersSchemas';
 import { UsersQueryRepository } from '../users/users.queryRepository';
-import { Device, DeviceDbModel } from '../../models/deviceSchemas';
+import { DeviceDbModel, DeviceModel } from '../../models/deviceSchemas';
 import { UserDecorator } from '../../infastructure/decorators/param/user.decorator';
 import { AuthService } from './auth.service';
 import { RefreshToken } from './decorators/refresh-token.decoratoes';
 import { DeviceService } from '../device/device.service';
+import { UsersQueryRepositoryRawSql } from '../users/users.queryRepositoryRawSql';
+import { AuthGuardRawSql } from '../../guards/auth.middleware.raw.sql';
 
 @Controller('auth')
 export class AuthController {
   constructor(
+    @InjectModel('Device') private readonly deviceModel: Model<DeviceModel>,
     private readonly jwtService: JwtService,
     private readonly authService: AuthService,
     private readonly authRepository: AuthRepository,
     private readonly usersQueryRepository: UsersQueryRepository,
     private readonly deviceService: DeviceService,
-    @InjectModel('Device') private readonly deviceModel: Model<Device>,
+    private readonly usersQueryRepositoryRawSql: UsersQueryRepositoryRawSql,
   ) {}
 
-  @Throttle({ default: { limit: 5, ttl: 10000 } })
+  @Throttle({ default: { limit: 5, ttl: 10000 } }) //TO DO refactoring on service
   @UseGuards(ThrottlerGuard)
   @Post('/login')
   @HttpCode(200)
@@ -71,7 +73,8 @@ export class AuthController {
         deviceId,
         userId,
       };
-      await this.deviceModel.insertMany([newDevice]);
+
+      await this.deviceService.setDevice(newDevice);
       res.cookie('refreshToken', refreshToken, {
         httpOnly: true,
         secure: true,
@@ -104,44 +107,52 @@ export class AuthController {
     return this.authService.newPassword(newPasswordDto);
   }
 
-  @Post('refresh-token')
+  @Post('refresh-token') //TO DO refactoring on service 2
   @HttpCode(200)
   async createRefreshToken(
     @RefreshToken() token: string,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    if (!token) throw new UnauthorizedException();
-    try {
-      const isValid = await this.authService.validateRefreshToken(token);
-      const user = await this.usersQueryRepository.findUserById(isValid.userId);
-      if (!user) {
-        throw new UnauthorizedException();
-      }
-      const device: DeviceDbModel =
-        await this.deviceService.findDevice(isValid);
-      await this.deviceService.findDeviceLastActiveDate(token, device);
+    if (!token) throw new UnauthorizedException('Token is not found');
 
-      //TODO refactoring code and switch to rawSql
-      const newTokens = await this.authRepository.refreshTokens(
-        user.id,
-        device.deviceId,
-      );
-      const newLastActiveDate = await this.jwtService.getLastActiveDate(
-        newTokens.newRefreshToken,
-      );
-      await this.deviceModel.updateOne(
-        { deviceId: device.deviceId },
-        { $set: { lastActiveDate: newLastActiveDate } },
-      ),
-        res.cookie('refreshToken', newTokens.newRefreshToken, {
-          httpOnly: true,
-          secure: true,
-        });
-      return { accessToken: newTokens.accessToken };
-    } catch (e) {
-      throw new UnauthorizedException();
+    const isValid = await this.authService.validateRefreshToken(token);
+    if (!isValid) {
+      throw new UnauthorizedException('Invalid refresh token');
     }
+
+    const user = await this.usersQueryRepositoryRawSql.findUserById(
+      isValid.userId,
+    );
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    const device: DeviceDbModel =
+      await this.deviceService.findDeviceByValidToken(isValid.deviceId);
+    if (!device) {
+      throw new UnauthorizedException('Device not found');
+    }
+
+    await this.deviceService.findDeviceLastActiveDate(token, device);
+
+    const newTokens = await this.authService.refreshTokens(
+      user.id,
+      device.deviceId,
+    );
+
+    const newLastActiveDate = await this.jwtService.getLastActiveDate(
+      newTokens.newRefreshToken,
+    );
+
+    await this.deviceService.updateDevice(device.deviceId, newLastActiveDate);
+
+    res.cookie('refreshToken', newTokens.newRefreshToken, {
+      httpOnly: true,
+      secure: true,
+    });
+
+    return { accessToken: newTokens.accessToken };
   }
 
   @Throttle({ default: { limit: 5, ttl: 10000 } })
@@ -197,7 +208,7 @@ export class AuthController {
   }
 
   @Get('me')
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuardRawSql)
   async createUserMe(
     @UserDecorator() user: User,
     @Req() req: Request,

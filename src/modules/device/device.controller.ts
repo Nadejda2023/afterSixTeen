@@ -6,7 +6,6 @@ import {
   HttpCode,
   Param,
   NotFoundException,
-  ForbiddenException,
 } from '@nestjs/common';
 import { DeviceService } from './device.service';
 import { DeviceRepository } from './device.repository';
@@ -24,30 +23,31 @@ export class DeviceController {
   async getDeviceByUserId(@RefreshToken() token: string) {
     if (!token) throw new UnauthorizedException();
     try {
-      console.log('refresh token from  req DEVICE:', token);
-      const isValid = await this.authRepository.validateRefreshToken(token);
+      const isValid = await this.deviceService.validateRefreshForDevice(token);
+      // console.log('refresh token from  req DEVICE:', token);
+      // const isValid = await this.authRepository.validateRefreshToken(token);
 
-      if (!isValid || !isValid.userId || !isValid.deviceId) {
-        throw new UnauthorizedException();
-      }
-      const user = await this.authRepository.findUserByID(isValid.userId);
+      // if (!isValid || !isValid.userId || !isValid.deviceId) {
+      //   throw new UnauthorizedException();
+      // }
+      // const user = await this.authRepository.findUserByID(isValid.userId);
 
-      if (!user) {
-        throw new UnauthorizedException();
-      }
+      // if (!user) {
+      //   throw new UnauthorizedException();
+      // }
 
-      const device = await this.deviceRepository.findDeviceById(
-        isValid.deviceId,
-      );
-      if (!device) {
-        throw new UnauthorizedException();
-      }
+      // const device = await this.deviceRepository.findDeviceById(
+      //   isValid.deviceId,
+      // );
+      // if (!device) {
+      //   throw new UnauthorizedException();
+      // }
 
-      if (isValid.userId !== device.userId) {
-        throw new UnauthorizedException();
-      }
+      // if (isValid.userId !== device.userId) {
+      //   throw new UnauthorizedException();
+      // }
 
-      const foundDevices = await this.deviceRepository.getAllDeviceByUserId(
+      const foundDevices = await this.deviceService.getAllDeviceByUserId(
         isValid.userId,
       );
       if (!foundDevices) {
@@ -68,12 +68,8 @@ export class DeviceController {
   @Delete('')
   @HttpCode(204)
   async deleteAllDeviceExceptOneDevice(@RefreshToken() token: string) {
-    const isValid = await this.authRepository.validateRefreshToken(token);
-    // if (!isValid || !isValid.userId || !isValid.deviceId) {
-    //   throw new UnauthorizedException();
-    // }
-
-    return await this.deviceRepository.deleteAllExceptOne(
+    const isValid = await this.deviceService.validateRefreshToken(token);
+    return await this.deviceService.deleteAllExceptOne(
       isValid.userId,
       isValid.deviceId,
     ); // delete({userId, $..: deviceId})
@@ -84,25 +80,26 @@ export class DeviceController {
     @RefreshToken() token: string,
     @Param('deviceId') deviceId: string,
   ) {
-    const isValid = await this.authRepository.validateRefreshToken(token);
-    if (!isValid || !isValid.userId || !isValid.deviceId) {
-      throw new UnauthorizedException();
-    }
+    await this.deviceService.validateRefreshForDevice(token);
+    // const isValid = await this.authRepository.validateRefreshToken(token);
+    // if (!isValid || !isValid.userId || !isValid.deviceId) {
+    //   throw new UnauthorizedException();
+    // }
 
-    const user = await this.authRepository.findUserByID(isValid.userId);
-    if (!user) {
-      throw new UnauthorizedException();
-    }
+    // const user = await this.authRepository.findUserByID(isValid.userId);
+    // if (!user) {
+    //   throw new UnauthorizedException();
+    // }
 
-    const device = await this.deviceRepository.findDeviceById(deviceId); //
-    if (!device) {
-      throw new NotFoundException(`Device with ID ${deviceId} not found`);
-    }
+    // const device = await this.deviceRepository.findDeviceById(deviceId); //
+    // if (!device) {
+    //   throw new NotFoundException(`Device with ID ${deviceId} not found`);
+    // }
 
-    if (device.userId !== isValid.userId) {
-      throw new ForbiddenException('this resource is forbidden');
-    }
+    // if (device.userId !== isValid.userId) {
+    //   throw new ForbiddenException('this resource is forbidden');
+    // }
 
-    return await this.deviceRepository.deleteDeviceId(deviceId);
+    return await this.deviceService.deleteDeviceById(deviceId);
   }
 }

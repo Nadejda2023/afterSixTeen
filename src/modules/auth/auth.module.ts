@@ -9,6 +9,11 @@ import { UsersQueryRepository } from '../users/users.queryRepository';
 import { UsersQueryRepositoryRawSql } from '../users/users.queryRepositoryRawSql';
 import { UserRepository } from '../users/users.repository';
 import { UserRepositoryRawSql } from '../users/users.repository.raw.sgl';
+import { JwtService } from './application/jwt.service';
+import { DeviceService } from '../device/device.service';
+import { UserService } from '../users/users.service';
+import { DeviceRepositoryRawSQL } from '../device/device.repository.rawSql';
+import { AuthRepositoryRawSql } from './auth.repository.rawsql';
 
 @Module({
   controllers: [AuthController],
@@ -21,6 +26,12 @@ import { UserRepositoryRawSql } from '../users/users.repository.raw.sgl';
     UsersQueryRepository,
     UsersQueryRepositoryRawSql,
     UserRepositoryRawSql,
+    JwtService,
+    DeviceService,
+    UserService,
+    DeviceRepository,
+    DeviceRepositoryRawSQL,
+    AuthRepositoryRawSql,
   ],
   imports: [
     JwtModule.register({
@@ -30,5 +41,6 @@ import { UserRepositoryRawSql } from '../users/users.repository.raw.sgl';
       },
     }),
   ],
+  exports: [JwtService],
 })
 export class AuthModule {}

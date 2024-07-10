@@ -75,20 +75,20 @@ export class UsersQueryRepositoryRawSql {
   }
 
   async findUserById(id: string): Promise<UsersModel | null> {
-    const foundedUser = await this.userModel.findOne(
-      { id: id },
-      {
-        passwordSalt: 0,
-        passwordHash: 0,
-        emailConfirmation: 0,
-        refreshTokenBlackList: 0,
-      },
+    const result = await this.dataSource.query(
+      `SELECT *
+      FROM public."Users" u
+      LEFT JOIN public."EmailConfirmation" e ON e."userId" = u.id
+     WHERE u.id = $1;`,
+      [id],
     );
 
-    if (!foundedUser) {
+    if (result.length === 0) {
       return null;
     }
-    return foundedUser;
+
+    const user = result[0];
+    return user;
   }
 
   async findByLoginOrEmail(loginOrEmail: string): Promise<UsersModel | null> {
